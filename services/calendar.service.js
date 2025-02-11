@@ -35,19 +35,18 @@ class CalendarService {
       }]
     });
 
-    //TEST
     // return claudeResponse.content[0].text;
-    //  return {
-    //    status: 200,
-    //    event: {
-    //      title: "Cena en La Piazza",
-    //      description: "Cena con amigos en el restaurante La Piazza.",
-    //      start: "2025-02-12T18:00:00-03:00",
-    //      end: "2025-02-12T19:00:00-03:00",
-    //      location: "Av. Corrientes 1861, C1014AAA, Buenos Aires, Argentina",
-    //      conference: true
-    //    }
-    //  }
+    // return {
+    //   status: 200,
+    //   event: {
+    //     title: "Cena en La Piazza",
+    //     description: "Cena con amigos en el restaurante La Piazza.",
+    //     start: "2025-02-11T14:00:00-03:00",
+    //     end: "2025-02-11T15:00:00-03:00",
+    //     location: "Av. Corrientes 1861, C1014AAA, Buenos Aires, Argentina",
+    //     conference: true
+    //   }
+    // }
     
   }
 
@@ -58,6 +57,8 @@ class CalendarService {
       if (parsedDetails.status !== 200) {
         throw new Error('Could not parse event details from the message');
       }
+
+      const attendeeEmail = process.env.ATTENDEE_EMAIL;
 
       const eventObject = {
         summary: parsedDetails.event.title,
@@ -72,14 +73,20 @@ class CalendarService {
         },
         attendees: [
           {
-            email: 'joacovillamediana@gmail.com',
-            responseStatus: 'accepted'
+            email: attendeeEmail,
+            responseStatus: 'accepted',
+            organizer: true
           }
         ],
         sendUpdates: 'all',
         guestsCanSeeOtherGuests: true,
         reminders: {
           useDefault: true
+        },
+        organizer: {
+          email: attendeeEmail,
+          displayName: attendeeEmail.split('@')[0],
+          self: true
         }
       };
 
@@ -95,8 +102,35 @@ class CalendarService {
             requestId: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             conferenceSolutionKey: {
               type: 'hangoutsMeet'
+            },
+            status: {
+              statusCode: 'success'
             }
+          },
+          entryPoints: [{
+            entryPointType: 'video',
+            uri: '',
+            label: parsedDetails.event.title
+          }],
+          conferenceSolution: {
+            key: {
+              type: 'hangoutsMeet'
+            },
+            name: 'Google Meet'
+          },
+          conferenceId: '',
+          signature: '',
+          notes: '',
+          parameters: {
+            addAttendeePrivileges: true
           }
+        };
+
+        // Set the attendee as the conference owner
+        eventObject.conferenceData.creator = {
+          email: attendeeEmail,
+          displayName: attendeeEmail.split('@')[0],
+          self: false
         };
       }
 
@@ -113,7 +147,7 @@ class CalendarService {
         calendarId: 'primary',
         resource: event,
         sendNotifications: true,
-        conferenceDataVersion: 1  // Required for creating Google Meet conferences
+        conferenceDataVersion: 1
       });
       return createdEvent.data;
     } catch (error) {
