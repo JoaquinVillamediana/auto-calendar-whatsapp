@@ -21,28 +21,28 @@ class CalendarService {
 
   async getEventDetailsFromClaude(query) {
     // Replace {{{TODAY-DATE}}} with current date in the prompt
-    // const today = new Date().toISOString().split('T')[0];
-    // const prompt = process.env.CLAUDE_PROMPT.replace('{{{TODAY-DATE}}}', today);
+    const today = new Date().toISOString().split('T')[0];
+    const prompt = process.env.CLAUDE_PROMPT.replace('{{{TODAY-DATE}}}', today);
 
-    // const claudeResponse = await this.anthropic.messages.create({
-    //   model: "claude-3-sonnet-20240229",
-    //   max_tokens: 1000,
-    //   messages: [{
-    //     role: "user",
-    //     content: prompt + "\n\nQuery: " + query
-    //   }]
-    // });
+    const claudeResponse = await this.anthropic.messages.create({
+      model: "claude-3-sonnet-20240229",
+      max_tokens: 1000,
+      messages: [{
+        role: "user",
+        content: prompt + "\n\nQuery: " + query
+      }]
+    });
 
-    // return claudeResponse.content[0].text;
-    return {
-      status: 200,
-      event: {
-        title: "Cena en La Piazza",
-        description: "Cena con amigos en el restaurante La Piazza.",
-        start: "2025-02-11T18:00:00-03:00",
-        end: "2025-02-11T19:00:00-03:00"
-      }
-    }
+    return claudeResponse.content[0].text;
+    // return {
+    //   status: 200,
+    //   event: {
+    //     title: "Cena en La Piazza",
+    //     description: "Cena con amigos en el restaurante La Piazza.",
+    //     start: "2025-02-12T18:00:00-03:00",
+    //     end: "2025-02-12T19:00:00-03:00"
+    //   }
+    // }
     
   }
 
@@ -65,6 +65,19 @@ class CalendarService {
           dateTime: parsedDetails.event.end,
           timeZone: 'America/Argentina/Buenos_Aires',
         },
+        attendees: [
+          {
+            email: 'joacovillamediana@gmail.com',
+            responseStatus: 'needsAction'
+          }
+        ],
+        // Send email notifications to attendees
+        sendUpdates: 'all',
+        // Request a response from attendees
+        guestsCanSeeOtherGuests: true,
+        reminders: {
+          useDefault: true
+        }
       };
     } catch (error) {
       console.error('Error parsing event details:', error);
@@ -77,6 +90,7 @@ class CalendarService {
       const createdEvent = await this.calendar.events.insert({
         calendarId: 'primary',
         resource: event,
+        sendNotifications: true
       });
       return createdEvent.data;
     } catch (error) {
@@ -86,6 +100,7 @@ class CalendarService {
         const createdEvent = await this.calendar.events.insert({
           calendarId: 'primary',
           resource: event,
+          sendNotifications: true
         });
         return createdEvent.data;
       }
