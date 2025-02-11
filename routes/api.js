@@ -1,8 +1,8 @@
 /**ROUTE USER APIs. */
-var express = require('express')
+import express from 'express';
+import calendar from './api/calendar.route.js';
 
-var router = express.Router()
-var calendar = require('./api/calendar.route')
+const router = express.Router();
 
 function logRequest(req, res, next) {
   console.log(`${new Date()} - [${req.method}] ${req.originalUrl}`);
@@ -13,4 +13,4 @@ function logRequest(req, res, next) {
 
 router.use('/calendar', logRequest, calendar);
 
-module.exports = router;
+export default router;

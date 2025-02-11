@@ -1,42 +1,48 @@
-const express = require('express');
-var cookieParser = require('cookie-parser');
-var cors = require('cors');
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import api from './routes/api.js';
 
-//importo router
-// var indexRouter = require('./routes/index');
-var apiRouter = require('./routes/api');
+const app = express();
 
-var app = express();
-app.use(express.json());
-app.use(express.urlencoded({
-  extended: false
+// CORS configuration
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors());
 
-app.use(function (req, res, next) {
-  // res.header("Access-Control-Allow-Origin", process.env.FRONTEND_BASE_URL);
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+  console.log('Content-Type:', req.headers['content-type']);
   next();
 });
 
-app.use('/api', apiRouter);
-// app.use('/', indexRouter);
+app.use('/api', api);
 
-const PORT = 3000;
-
-app.get('/', (req, res) => {
-    res.send('Hello World');
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  res.status(404).json({ error: 'Not Found' });
 });
 
-app.listen(PORT, (error) =>{
-    if(!error)
-        console.log("Server is Successfully Running, and App is listening on port "+ PORT)
-    else 
-        console.log("Error occurred, server can't start", error);
-    }
-);
+// error handler
+app.use(function(err, req, res, next) {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error'
+  });
+});
 
-module.exports = app;
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+export default app;

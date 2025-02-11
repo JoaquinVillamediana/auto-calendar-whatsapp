@@ -1,7 +1,9 @@
-const { google } = require('googleapis');
-const { OAuth2Client } = require('google-auth-library');
-const Anthropic = require('@anthropic-ai/sdk');
-require('dotenv').config();
+import { google } from 'googleapis';
+import Anthropic from '@anthropic-ai/sdk';
+import googleService from './google.service.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class CalendarService {
   constructor() {
@@ -10,56 +12,85 @@ class CalendarService {
       apiKey: process.env.CLAUDE_API_KEY,
     });
 
-    // Initialize Google OAuth2 client
-    this.oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
-
-    // Set credentials from environment variables
-    this.oauth2Client.setCredentials({
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+    // Initialize calendar instance with the oauth2Client from Google service
+    this.calendar = google.calendar({ 
+      version: 'v3', 
+      auth: googleService.getClient()
     });
-
-    // Create Google Calendar instance
-    this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
   }
 
   async getEventDetailsFromClaude(query) {
-    const claudeResponse = await this.anthropic.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [{
-        role: "user",
-        content: process.env.CLAUDE_PROMPT + "\n\nQuery: " + query
-      }]
-    });
+    // Replace {{{TODAY-DATE}}} with current date in the prompt
+    // const today = new Date().toISOString().split('T')[0];
+    // const prompt = process.env.CLAUDE_PROMPT.replace('{{{TODAY-DATE}}}', today);
 
-    return claudeResponse.content[0].text;
+    // const claudeResponse = await this.anthropic.messages.create({
+    //   model: "claude-3-sonnet-20240229",
+    //   max_tokens: 1000,
+    //   messages: [{
+    //     role: "user",
+    //     content: prompt + "\n\nQuery: " + query
+    //   }]
+    // });
+
+    // return claudeResponse.content[0].text;
+    return {
+      status: 200,
+      event: {
+        title: "Cena en La Piazza",
+        description: "Cena con amigos en el restaurante La Piazza.",
+        start: "2025-02-11T18:00:00-03:00",
+        end: "2025-02-11T19:00:00-03:00"
+      }
+    }
+    
   }
 
   createEventObject(query, eventDetails) {
-    return {
-      summary: 'Auto-generated Event',
-      description: `Generated from query: ${query}\n\nDetails: ${eventDetails}`,
-      start: {
-        dateTime: new Date().toISOString(),
-        timeZone: 'America/Argentina/Buenos_Aires',
-      },
-      end: {
-        dateTime: new Date(Date.now() + 3600000).toISOString(),
-        timeZone: 'America/Argentina/Buenos_Aires',
-      },
-    };
+    try {
+      const parsedDetails = typeof eventDetails === 'string' ? JSON.parse(eventDetails) : eventDetails;
+      
+      if (parsedDetails.status !== 200) {
+        throw new Error('Could not parse event details from the message');
+      }
+
+      return {
+        summary: parsedDetails.event.title,
+        description: parsedDetails.event.description,
+        start: {
+          dateTime: parsedDetails.event.start,
+          timeZone: 'America/Argentina/Buenos_Aires',
+        },
+        end: {
+          dateTime: parsedDetails.event.end,
+          timeZone: 'America/Argentina/Buenos_Aires',
+        },
+      };
+    } catch (error) {
+      console.error('Error parsing event details:', error);
+      throw new Error('Failed to parse event details from Claude response');
+    }
   }
 
   async createCalendarEvent(event) {
-    const createdEvent = await this.calendar.events.insert({
-      calendarId: 'primary',
-      resource: event,
-    });
-    return createdEvent.data;
+    try {
+      const createdEvent = await this.calendar.events.insert({
+        calendarId: 'primary',
+        resource: event,
+      });
+      return createdEvent.data;
+    } catch (error) {
+      // If token expired, refresh it and try again
+      if (error.code === 401) {
+        await googleService.refreshAccessToken();
+        const createdEvent = await this.calendar.events.insert({
+          calendarId: 'primary',
+          resource: event,
+        });
+        return createdEvent.data;
+      }
+      throw error;
+    }
   }
 
   async processQuery(query) {
@@ -74,9 +105,9 @@ class CalendarService {
     return {
       message: 'Event created successfully',
       eventId: createdEvent.id,
-      eventDetails: eventDetails
+      eventDetails: typeof eventDetails === 'string' ? JSON.parse(eventDetails) : eventDetails
     };
   }
 }
 
-module.exports = new CalendarService(); 
+export default new CalendarService(); 
