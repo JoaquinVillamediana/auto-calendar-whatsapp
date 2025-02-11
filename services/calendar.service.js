@@ -27,22 +27,27 @@ class CalendarService {
     const claudeResponse = await this.anthropic.messages.create({
       model: "claude-3-sonnet-20240229",
       max_tokens: 1000,
+      system: prompt,
+      temperature: 0.3,
       messages: [{
         role: "user",
-        content: prompt + "\n\nQuery: " + query
+        content: query
       }]
     });
 
-    return claudeResponse.content[0].text;
-    // return {
-    //   status: 200,
-    //   event: {
-    //     title: "Cena en La Piazza",
-    //     description: "Cena con amigos en el restaurante La Piazza.",
-    //     start: "2025-02-12T18:00:00-03:00",
-    //     end: "2025-02-12T19:00:00-03:00"
-    //   }
-    // }
+    //TEST
+    // return claudeResponse.content[0].text;
+    //  return {
+    //    status: 200,
+    //    event: {
+    //      title: "Cena en La Piazza",
+    //      description: "Cena con amigos en el restaurante La Piazza.",
+    //      start: "2025-02-12T18:00:00-03:00",
+    //      end: "2025-02-12T19:00:00-03:00",
+    //      location: "Av. Corrientes 1861, C1014AAA, Buenos Aires, Argentina",
+    //      conference: true
+    //    }
+    //  }
     
   }
 
@@ -54,7 +59,7 @@ class CalendarService {
         throw new Error('Could not parse event details from the message');
       }
 
-      return {
+      const eventObject = {
         summary: parsedDetails.event.title,
         description: parsedDetails.event.description,
         start: {
@@ -68,17 +73,34 @@ class CalendarService {
         attendees: [
           {
             email: 'joacovillamediana@gmail.com',
-            responseStatus: 'needsAction'
+            responseStatus: 'accepted'
           }
         ],
-        // Send email notifications to attendees
         sendUpdates: 'all',
-        // Request a response from attendees
         guestsCanSeeOtherGuests: true,
         reminders: {
           useDefault: true
         }
       };
+
+      // Add location if present
+      if (parsedDetails.event.location) {
+        eventObject.location = parsedDetails.event.location;
+      }
+
+      // Add Google Meet conference if requested
+      if (parsedDetails.event.conference) {
+        eventObject.conferenceData = {
+          createRequest: {
+            requestId: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            conferenceSolutionKey: {
+              type: 'hangoutsMeet'
+            }
+          }
+        };
+      }
+
+      return eventObject;
     } catch (error) {
       console.error('Error parsing event details:', error);
       throw new Error('Failed to parse event details from Claude response');
@@ -90,7 +112,8 @@ class CalendarService {
       const createdEvent = await this.calendar.events.insert({
         calendarId: 'primary',
         resource: event,
-        sendNotifications: true
+        sendNotifications: true,
+        conferenceDataVersion: 1  // Required for creating Google Meet conferences
       });
       return createdEvent.data;
     } catch (error) {
@@ -100,7 +123,8 @@ class CalendarService {
         const createdEvent = await this.calendar.events.insert({
           calendarId: 'primary',
           resource: event,
-          sendNotifications: true
+          sendNotifications: true,
+          conferenceDataVersion: 1
         });
         return createdEvent.data;
       }

@@ -7,7 +7,7 @@ const router = express.Router();
 function logRequest(req, res, next) {
   console.log(`${new Date()} - [${req.method}] ${req.originalUrl}`);
   if(req.method !== "GET")
-    console.log(req.body)
+    // console.log(req.body)
   next();
 }
 
