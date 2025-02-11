@@ -13,29 +13,41 @@ class CalendarService {
     });
 
     // Initialize calendar instance with the oauth2Client from Google service
-    this.calendar = google.calendar({ 
-      version: 'v3', 
+    this.calendar = google.calendar({
+      version: 'v3',
       auth: googleService.getClient()
     });
   }
 
   async getEventDetailsFromClaude(query) {
     // Replace {{{TODAY-DATE}}} with current date in the prompt
-    const today = new Date().toISOString().split('T')[0];
+    // Obtener el día de la semana, el día del mes, el mes y el año
+    const date = new Date();
+    const daysOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dayOfWeek = daysOfWeek[date.getDay()];
+    const dayOfMonth = date.getDate();
+    const month = date.getMonth() + 1; // Months in JavaScript go from 0 to 11
+    const year = date.getFullYear();
+
+    // Format the date in the desired format
+    const today = `${dayOfWeek} ${dayOfMonth} del mes ${month.toString().padStart(2, '0')} del año ${year}`;
+
     const prompt = process.env.CLAUDE_PROMPT.replace('{{{TODAY-DATE}}}', today);
 
     const claudeResponse = await this.anthropic.messages.create({
-      model: "claude-3-sonnet-20240229",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 1000,
       system: prompt,
-      temperature: 0.3,
+      temperature: 0.5,
       messages: [{
         role: "user",
         content: query
       }]
     });
+    console.log(claudeResponse.content[0].text);
+    return claudeResponse.content[0].text;
 
-    // return claudeResponse.content[0].text;
+    //TEST
     // return {
     //   status: 200,
     //   event: {
@@ -47,13 +59,13 @@ class CalendarService {
     //     conference: true
     //   }
     // }
-    
+
   }
 
   createEventObject(query, eventDetails) {
     try {
       const parsedDetails = typeof eventDetails === 'string' ? JSON.parse(eventDetails) : eventDetails;
-      
+
       if (parsedDetails.status !== 200) {
         throw new Error('Could not parse event details from the message');
       }
